@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Campaign Orchestrator — Implementation Guide</title>
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --ink-mute: #6b6b6b;
+    --paper: #fbf9f4;
+    --paper-elev: #ffffff;
+    --rule: #e6e1d6;
+    --accent: #b8552d;
+    --accent-soft: #f3e3d8;
+    --ok: #2f6b3a;
+    --ok-soft: #e0eedf;
+    --warn: #b8852d;
+    --warn-soft: #f6ecd4;
+    --crit: #a32b2b;
+    --crit-soft: #f3dada;
+    --info: #2d5a82;
+    --info-soft: #d9e6f1;
+    --code-bg: #f2efe8;
+    --serif: "Source Serif Pro", "Source Serif 4", Georgia, "Times New Roman", serif;
+    --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; scroll-behavior: smooth; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.65; }
+  .page { max-width: 900px; margin: 0 auto; padding: 64px 32px 96px; }
+
+  .masthead { border-bottom: 3px double var(--ink); padding-bottom: 24px; margin-bottom: 40px; }
+  .kicker { font-size: 12px; font-weight: 600; letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent); margin-bottom: 12px; }
+  h1 { font-family: var(--serif); font-size: clamp(32px, 5vw, 48px); font-weight: 700; line-height: 1.1; letter-spacing: -0.02em; margin: 0 0 16px; }
+  .deck { font-family: var(--serif); font-style: italic; font-size: clamp(18px, 2.4vw, 22px); line-height: 1.45; color: var(--ink-soft); margin: 0 0 20px; max-width: 64ch; }
+  .meta { display: flex; flex-wrap: wrap; gap: 12px 24px; font-size: 13px; color: var(--ink-mute); }
+  .meta b { color: var(--ink); font-weight: 600; }
+
+  .toc { background: var(--paper-elev); border: 1px solid var(--rule); border-radius: 6px; padding: 20px 28px; margin: 32px 0 48px; }
+  .toc h3 { margin: 0 0 12px; font-family: var(--sans); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-mute); }
+  .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 32px; font-size: 14px; }
+  .toc li { margin-bottom: 6px; break-inside: avoid; }
+  .toc a { color: var(--ink); text-decoration: none; }
+  .toc a:hover { color: var(--accent); text-decoration: underline; }
+
+  h2 { font-family: var(--serif); font-size: 30px; font-weight: 700; letter-spacing: -0.01em; margin: 64px 0 8px; padding-bottom: 8px; border-bottom: 1px solid var(--rule); }
+  h2 .num { display: inline-block; font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--accent); margin-right: 10px; vertical-align: middle; }
+  h3 { font-family: var(--serif); font-size: 21px; font-weight: 600; margin: 36px 0 12px; }
+  .section-intro { font-family: var(--serif); font-style: italic; color: var(--ink-soft); margin: 8px 0 28px; font-size: 17px; }
+  p { margin: 0 0 16px; }
+  a { color: var(--accent); text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 2px; }
+  code { background: var(--code-bg); padding: 1px 6px; border-radius: 3px; font-family: var(--mono); font-size: 13px; }
+
+  pre { background: #1f1d18; color: #f0ead6; padding: 18px 22px; border-radius: 6px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.55; margin: 16px 0 24px; }
+  pre code { background: transparent; padding: 0; color: inherit; font-size: inherit; }
+  pre .cmd { color: #9fd17e; }
+  pre .cmt { color: #8a8676; font-style: italic; }
+  pre .kw  { color: #e6c87e; }
+  pre .str { color: #d9a777; }
+
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; white-space: nowrap; }
+  .badge.ok   { background: var(--ok-soft);   color: var(--ok); }
+  .badge.warn { background: var(--warn-soft); color: #7a5814; }
+  .badge.crit { background: var(--crit-soft); color: var(--crit); }
+  .badge.info { background: var(--info-soft); color: var(--info); }
+  .badge.todo { background: #ececec;          color: #555; }
+
+  table.t { width: 100%; border-collapse: collapse; margin: 16px 0 28px; font-size: 14px; }
+  table.t th, table.t td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  table.t th { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-mute); border-bottom: 2px solid var(--ink); }
+  table.t tr:hover { background: rgba(184,85,45,0.04); }
+
+  .stage { margin: 24px 0; padding: 22px 26px; background: var(--paper-elev); border: 1px solid var(--rule); border-left: 4px solid var(--accent); border-radius: 4px; }
+  .stage-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+  .stage-head .tag { font-family: var(--mono); font-size: 12px; color: var(--accent); font-weight: 700; }
+  .stage-head h4 { font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 0; flex: 1 1 auto; }
+  .stage ul { padding-left: 20px; margin: 8px 0; }
+  .stage li { margin-bottom: 6px; font-size: 14.5px; }
+
+  .callout { margin: 22px 0; padding: 16px 20px; border-radius: 4px; border-left: 4px solid var(--info); background: var(--info-soft); font-size: 14.5px; }
+  .callout.warn { border-left-color: var(--warn); background: var(--warn-soft); }
+  .callout.crit { border-left-color: var(--crit); background: var(--crit-soft); }
+  .callout.ok   { border-left-color: var(--ok);   background: var(--ok-soft); }
+  .callout strong { display: block; margin-bottom: 4px; font-size: 12px; letter-spacing: 0.1em; text-transform: uppercase; }
+  .callout p:last-child { margin-bottom: 0; }
+
+  .roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin: 20px 0 28px; }
+  .role { background: var(--paper-elev); border: 1px solid var(--rule); border-radius: 6px; padding: 18px 20px; }
+  .role h4 { margin: 0 0 8px; font-family: var(--serif); font-size: 17px; }
+  .role p  { margin: 0; font-size: 13.5px; color: var(--ink-soft); }
+  .role .sk { display: block; font-family: var(--mono); font-size: 12px; color: var(--accent); margin-top: 8px; }
+
+  footer { margin-top: 80px; padding-top: 24px; border-top: 1px solid var(--rule); font-size: 13px; color: var(--ink-mute); }
+  footer code { font-size: 12px; }
+
+  @media (max-width: 640px) { .toc ol { columns: 1; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+<header class="masthead">
+  <div class="kicker">Skill suite · Implementation guide</div>
+  <h1>Campaign Orchestrator</h1>
+  <p class="deck">A walk-through for new contributors: how the <code>/campaign</code> skill bundle scaffolds, authors, and verifies a Databricks campaign pipeline end-to-end on top of <code>generic-campaigns/</code>.</p>
+  <div class="meta">
+    <span><b>Audience:</b> Analysts new to <code>vn-ai-projects</code></span>
+    <span><b>Reading time:</b> ~15 min</span>
+    <span><b>Skill version:</b> v1 (commit 41c77ca)</span>
+    <span><b>Last updated:</b> 2026-05-26</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h3>Contents</h3>
+  <ol>
+    <li><a href="#what">What this is</a></li>
+    <li><a href="#mental">Mental model</a></li>
+    <li><a href="#prereq">Prerequisites</a></li>
+    <li><a href="#cast">The cast — 4 skills</a></li>
+    <li><a href="#verbs">The five verbs</a></li>
+    <li><a href="#happy">Happy-path walkthrough</a></li>
+    <li><a href="#stages">Stage-by-stage authoring</a></li>
+    <li><a href="#sentinels">Sentinel blocks</a></li>
+    <li><a href="#schema">Schema verification</a></li>
+    <li><a href="#deploy">Deploy &amp; verify loop</a></li>
+    <li><a href="#troubleshoot">Troubleshooting</a></li>
+    <li><a href="#faq">FAQ</a></li>
+  </ol>
+</nav>
+
+<h2 id="what"><span class="num">1</span>What this is</h2>
+<p class="section-intro">A single command that turns "I need a new <your-campaign-family> campaign" into a production-ready 6-notebook Databricks pipeline.</p>
+
+<p><b>Campaign Orchestrator</b> is a Copilot CLI skill bundle living under <code>skills/</code>. It drives the canonical campaign pipeline — six notebooks (data-prep → PO aggregation → hand-off → leads-list v1 → leads-list v2 → CE inputs) — without forcing you to rewrite boilerplate. The shared boilerplate already lives in <code>generic-campaigns/template/</code> and <code>generic-campaigns/lib/</code>; the orchestrator's job is to interview you for what's <em>campaign-specific</em>, verify your data assumptions against the live workspace, and gate every change behind a real run.</p>
+
+<div class="callout ok">
+  <strong>Why bother?</strong>
+  <p>Past campaigns took 3–6 days to bootstrap. With the orchestrator, scaffolding + intake + first stage typically take under an hour. The schema-verifier catches hallucinated column names before they ever reach a cluster.</p>
+</div>
+
+<h2 id="mental"><span class="num">2</span>Mental model</h2>
+<p>Hold these three ideas in mind:</p>
+
+<div class="roles">
+  <div class="role">
+    <h4>1 · The framework owns the boilerplate</h4>
+    <p><code>generic-campaigns/template/</code> ships the 6 notebooks with the common eligibility CTEs (in-force status, age band, plan-code filter, corporate exclusion, channel filter). You almost never touch the common code.</p>
+  </div>
+  <div class="role">
+    <h4>2 · The intake is the manifest</h4>
+    <p>One human-readable file — <code>docs/intake.md</code> — captures everything campaign-specific in 8 sections (metadata, eligibility, exclusions, segmentation, hand-offs, outputs). No YAML, no JSON config. If it's not in the intake, the orchestrator won't write code for it.</p>
+  </div>
+  <div class="role">
+    <h4>3 · The orchestrator coordinates skills</h4>
+    <p>It is <em>not</em> a single LLM brain doing everything. It dispatches to four specialised sub-skills, each owning one verb of the lifecycle.</p>
+  </div>
+</div>
+
+<h2 id="prereq"><span class="num">3</span>Prerequisites</h2>
+
+<table class="t">
+  <thead><tr><th>Check</th><th>How to verify</th><th>If failing</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><b>Copilot CLI</b> loaded the skills</td>
+      <td>Restart Copilot CLI in the repo root, then ask: <em>"List available skills"</em>. You should see <code>campaign-orchestrator</code>, <code>intake-extractor</code>, <code>schema-verifier</code>, <code>deploy-verifier</code>.</td>
+      <td>Check that <code>skills/&lt;name&gt;/SKILL.md</code> exists with valid YAML front-matter.</td>
+    </tr>
+    <tr>
+      <td><b>Databricks CLI</b> authenticated</td>
+      <td><code>databricks current-user me</code> returns your profile.</td>
+      <td><code>databricks auth login --host https://adb-2294815648411921.1.azuredatabricks.net</code></td>
+    </tr>
+    <tr>
+      <td><b>Git remote</b> writable</td>
+      <td><code>git push --dry-run origin main</code> succeeds.</td>
+      <td>Fix SSH/credential issue. The orchestrator <em>only</em> deploys via git, never direct upload.</td>
+    </tr>
+    <tr>
+      <td><b>Databricks Repos folder</b> exists</td>
+      <td><code>databricks repos get 985143326884916</code> returns metadata.</td>
+      <td>Re-clone the repo as a Databricks Git folder pointing at <code>/Workspace/Users/&lt;you&gt;/vn-ai-projects</code>.</td>
+    </tr>
+    <tr>
+      <td><b>SQL warehouse</b> available</td>
+      <td><code>databricks warehouses list</code> shows <code>DW_DBX_UC</code> (or equivalent).</td>
+      <td>Start a warehouse. Schema-verifier uses warehouses for DESCRIBE TABLE (much cheaper than clusters).</td>
+    </tr>
+    <tr>
+      <td><b>Analytics cluster</b> for runs</td>
+      <td><code>databricks clusters get <your-cluster-id></code></td>
+      <td>Confirm with the Data Office team if the cluster id has changed.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="cast"><span class="num">4</span>The cast — four skills</h2>
+<p class="section-intro">Each skill has its own SKILL.md under <code>skills/&lt;name&gt;/</code>. The orchestrator routes work to the right one.</p>
+
+<div class="roles">
+  <div class="role">
+    <h4>campaign-orchestrator <span class="badge info">entry point</span></h4>
+    <p>Parses <code>/campaign &lt;verb&gt;</code>, manages the campaign folder lifecycle, runs the intake interview, and dispatches to the others.</p>
+    <span class="sk">skills/campaign-orchestrator/</span>
+  </div>
+  <div class="role">
+    <h4>intake-extractor</h4>
+    <p>Reverse-engineers a draft <code>intake.md</code> from an existing campaign — invaluable when cloning a similar batch. Flags exclusions worth promoting into <code>lib/</code>.</p>
+    <span class="sk">skills/intake-extractor/</span>
+  </div>
+  <div class="role">
+    <h4>schema-verifier <span class="badge ok">anti-hallucination</span></h4>
+    <p>Runs <code>DESCRIBE TABLE</code> against the workspace via the SQL warehouse. Caches into <code>lt-memory/schemas/</code> for 7 days. Refuses to confirm columns that don't exist.</p>
+    <span class="sk">skills/schema-verifier/</span>
+  </div>
+  <div class="role">
+    <h4>deploy-verifier</h4>
+    <p>Closes the loop: <code>git push</code> → wait for workspace Git folder to pull → submit one-shot job → assert row counts. Never uses <code>databricks workspace import</code>.</p>
+    <span class="sk">skills/deploy-verifier/</span>
+  </div>
+</div>
+
+<h2 id="verbs"><span class="num">5</span>The five verbs</h2>
+
+<table class="t">
+  <thead><tr><th>Verb</th><th>Purpose</th><th>When to use</th></tr></thead>
+  <tbody>
+    <tr><td><code>/campaign init</code></td><td>Scaffold a new <code>agency-campaigns/&lt;campaign&gt;/&lt;batch&gt;/</code> folder; run the intake interview.</td><td>Day 1 of a new campaign.</td></tr>
+    <tr><td><code>/campaign extract-intake</code></td><td>Reverse-engineer a draft <code>intake.md</code> from an existing batch.</td><td>Before <code>init --reference</code>, or when retro-fitting an intake to an old campaign.</td></tr>
+    <tr><td><code>/campaign stage</code></td><td>Author the <em>campaign-specific</em> region inside one of the six notebooks.</td><td>After the intake is fully filled; one stage at a time.</td></tr>
+    <tr><td><code>/campaign verify</code></td><td>Push, sync, run the named stage on the cluster, assert row counts.</td><td>After every <code>stage</code> — gate before moving on.</td></tr>
+    <tr><td><code>/campaign status</code></td><td>Report intake completion %, sentinel coverage per notebook, schema-cache freshness, expected-output existence.</td><td>Any time you've lost track of where you are.</td></tr>
+  </tbody>
+</table>
+
+<h2 id="happy"><span class="num">6</span>Happy-path walkthrough</h2>
+<p class="section-intro">A new batch for an existing campaign, cloned from a prior batch.</p>
+
+<h3>Step 0 · Extract the reference intake (optional but recommended)</h3>
+<p>If batch-2 doesn't already have a clean <code>intake.md</code> (some older campaigns don't), generate a draft:</p>
+<pre><span class="cmd">/campaign extract-intake</span> agency-campaigns/<campaign>/<batch></pre>
+<p>The skill reads the 4 notebooks + any existing intake + audit-trail, and emits a draft with <code>&lt;!-- inferred from: ... --&gt;</code> provenance comments. It will also flag any exclusions present in the reference that <em>aren't</em> in <code>lib/exclusions.py</code> — for instance, <code>excl_shared_phone</code>, which appears in batch-1 but not batch-2.</p>
+
+<h3>Step 1 · Initialise the new batch</h3>
+<pre><span class="cmd">/campaign init</span> <campaign> <batch> <span class="kw">--reference</span> agency-campaigns/<campaign>/<batch></pre>
+<p>This copies <code>generic-campaigns/template/</code> to <code>agency-campaigns/<campaign>/<batch>/</code>, seeds <code>docs/intake.md</code> from the reference, and walks you through any remaining <code>&lt;!-- TODO --&gt;</code> placeholders one question at a time. Confirm each answer; the orchestrator edits the intake in place.</p>
+
+<div class="callout">
+  <strong>What about new campaigns with no reference?</strong>
+  <p>Drop the <code>--reference</code> flag. The init verb will ask <em>every</em> question in the intake interview from scratch.</p>
+</div>
+
+<h3>Step 2 · Author stage 01 (data-prep)</h3>
+<pre><span class="cmd">/campaign stage</span> data-prep</pre>
+<p>The orchestrator loads <code>skills/campaign-orchestrator/prompts/stage_data_prep.md</code>, reads sections 2 + 3 of the intake, runs every referenced table through <code>schema-verifier</code>, and then inserts the campaign-specific eligibility CTEs / WHERE conditions into <code>01_*_UC.py</code> — all inside a sentinel block. The common eligibility code is untouched.</p>
+
+<h3>Step 3 · Verify stage 01 on the cluster</h3>
+<pre><span class="cmd">/campaign verify</span> data-prep</pre>
+<p>Behind the scenes this calls <code>deploy-verifier</code>:</p>
+<ul>
+  <li>Confirms your working tree is clean.</li>
+  <li><code>git push</code> to GitHub.</li>
+  <li>Polls the Databricks Git folder (Repos id <code>985143326884916</code>) until its HEAD SHA matches your local HEAD.</li>
+  <li>Submits a one-shot job against <code><your-cluster-id></code>.</li>
+  <li>Polls run state; on success, runs <code>SELECT COUNT(*) FROM &lt;output&gt;</code> via the SQL warehouse and asserts ≥ your minimum.</li>
+  <li>Appends the result to <code>docs/audit-trail.md</code>.</li>
+</ul>
+
+<h3>Step 4 · Repeat for stages 02 → 06</h3>
+<p>Same pattern: <code>/campaign stage &lt;name&gt;</code>, then <code>/campaign verify &lt;name&gt;</code>. Each verify pass is your fail-loud gate before the next stage. If something is wrong (row count too low, schema drift, etc.), fix it locally, commit, and re-run verify.</p>
+
+<h3>Step 5 · Generate docs</h3>
+<pre><span class="cmd">/campaign stage</span> docs</pre>
+<p>This is the only stage that runs <em>after</em> the pipeline. It reads the audit trail and funnel artefacts to render <code>docs/README.md</code>, <code>docs/DOC.md</code>, and a <code>handovers/&lt;CAMPAIGN_CODE&gt;.html</code> page.</p>
+
+<h2 id="stages"><span class="num">7</span>Stage-by-stage authoring</h2>
+
+<div class="stage">
+  <div class="stage-head"><span class="tag">NB01</span><h4>data-prep</h4><span class="badge info">policy-grain</span></div>
+  <p>Filters in-force policies by plan family / nurturing range / cash-value / tenure rules, joins PO details + city. Outputs <code>&lt;campaign&gt;_&lt;batch&gt;_pol_final</code>.</p>
+  <ul>
+    <li>Common eligibility is framework-owned (status, age, plan, corporate).</li>
+    <li>Campaign-specific additions live inside <code>/* campaign-specific:data-prep:START */</code> markers — typically extra WHERE clauses or a new CTE.</li>
+    <li>Schema-verifier pre-checks every column you reference.</li>
+  </ul>
+</div>
+
+<div class="stage">
+  <div class="stage-head"><span class="tag">NB02</span><h4>po-aggregation</h4><span class="badge info">PO-grain</span></div>
+  <p>Collapses policy-grain to one row per PO. Applies servicing-agent tier rules, computes per-PO aggregates (sum APE, max tenure, total cash), and assigns the segmentation tier.</p>
+  <ul>
+    <li>Custom tier acceptance list, retention-override flag, segmentation CASE expression — all sentinel-wrapped.</li>
+    <li>Channel enum is closed <code>{Agency, VTB}</code>; closed-bank policies serviced by Agency staff are mapped to Agency (per ADR 0002).</li>
+  </ul>
+</div>
+
+<div class="stage">
+  <div class="stage-head"><span class="tag">NB03</span><h4>handoff-mapping</h4><span class="badge todo">may be skipped</span></div>
+  <p>If your intake's section 7 says "no external hand-off", this stage is a near-no-op pass-through. Otherwise, it joins the hand-off CSV (uploaded to a Volume) and applies KEEP/DROP/DEFER decisions per PO.</p>
+</div>
+
+<div class="stage">
+  <div class="stage-head"><span class="tag">NB04 + NB05</span><h4>leads-list</h4><span class="badge warn">shared notebook</span></div>
+  <p>The core leads-list builder. Adds enrichment columns, applies framework + campaign exclusions, builds the funnel, and calls <code>assert_leads_list_schema(df)</code> — <em>fail-loud if the output schema diverges from the contract</em>.</p>
+  <ul>
+    <li>NB04 = v1 (pre-launch); NB05 = v2 (near-launch refresh). NB05 is a 2-cell <code>%run</code> shim with <code>RUN_TAG=v2</code>. <strong>Never duplicate logic into NB05.</strong></li>
+    <li>If a campaign-specific exclusion appears in ≥2 campaigns, the orchestrator will offer to promote it into <code>lib/exclusions.py</code>.</li>
+  </ul>
+</div>
+
+<div class="stage">
+  <div class="stage-head"><span class="tag">NB06</span><h4>engine-inputs</h4><span class="badge crit">body is sacred</span></div>
+  <p>A <code>%run</code> shim around <code>/agency-campaigns/_campaign_input_files.py</code>. Produces the four CE input CSVs (ENGINE_MEMBER / ENGINE_PROMO / ENGINE_OFFER / ENGINE_TARGET) ready for sFTP.</p>
+  <div class="callout crit">
+    <strong>Hard rule</strong>
+    <p>Only widget defaults are edited. The body of NB06 is contract code — never regenerate it. If you think a widget is missing from the shared file, file an ADR; don't work around it locally.</p>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="stage-head"><span class="tag">docs</span><h4>documentation</h4><span class="badge ok">final step</span></div>
+  <p>Reads the audit trail + funnel + intake to render <code>docs/README.md</code>, <code>docs/DOC.md</code>, and the handovers HTML page. Always run last.</p>
+</div>
+
+<h2 id="sentinels"><span class="num">8</span>Sentinel blocks — why your hand-edits survive</h2>
+
+<p>Every stage authoring pass wraps its work in a sentinel marker:</p>
+<pre><span class="cmt"># region campaign-specific:data-prep — START (managed by campaign-orchestrator)</span>
+<span class="cmt"># ... custom CTE, WHERE conditions, derived columns ...</span>
+<span class="cmt"># endregion campaign-specific:data-prep — END</span></pre>
+
+<p>For SQL inside string literals, the equivalent is:</p>
+<pre><span class="cmt">/* campaign-specific:data-prep:START */</span>
+  AND pb.anniv_year BETWEEN 5 AND 10
+<span class="cmt">/* campaign-specific:data-prep:END */</span></pre>
+
+<div class="callout">
+  <strong>What this guarantees</strong>
+  <p>Re-running <code>/campaign stage data-prep</code> after you've hand-edited <em>outside</em> the sentinel block will only replace the managed region. Your hand-edits to the framework code, comments, or widgets outside the markers are preserved.</p>
+</div>
+
+<div class="callout warn">
+  <strong>What this does NOT guarantee</strong>
+  <p>If you hand-edit code <em>inside</em> the sentinel block, the next <code>stage</code> re-run will overwrite it. If you need to keep manual logic inside the managed region, move it out — or update the intake and let the orchestrator regenerate.</p>
+</div>
+
+<h2 id="schema"><span class="num">9</span>Schema verification — the anti-hallucination layer</h2>
+
+<p>Before any SQL is authored, the relevant tables are passed through <code>schema-verifier</code>:</p>
+<pre><span class="cmt"># under the hood, the orchestrator calls something like:</span>
+<span class="cmd">schema-verifier</span> column <source_catalog>.<source_schema_ams>.agent_master.<span class="str">vndr_nm</span>
+<span class="cmt"># returns:</span>
+<span class="kw">status:</span> not_found
+<span class="kw">suggestion:</span> vnd_nm</pre>
+
+<p>The verifier caches results to <code>lt-memory/schemas/&lt;fqn&gt;.json</code> with a 7-day TTL. Pass <code>--refresh</code> to force a re-fetch (e.g. after a known DDL change). Three known historical typo traps the verifier will catch:</p>
+
+<table class="t">
+  <thead><tr><th>Wrong</th><th>Right</th><th>Table</th></tr></thead>
+  <tbody>
+    <tr><td><code>vndr_nm</code></td><td><code>vnd_nm</code></td><td><code>agent_master</code></td></tr>
+    <tr><td><code>paid_through_dt</code></td><td><code>pt_thru_dt</code></td><td><code>policies</code></td></tr>
+    <tr><td><code>product_code_base</code></td><td><code>product_code</code></td><td><code>policies</code> (the <code>_base</code> variant lives in <code>policy_curated_daily/mthend</code>)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="deploy"><span class="num">10</span>Deploy &amp; verify loop</h2>
+
+<p>The deploy-verifier never uses <code>databricks workspace import</code>. The only acceptable deploy path is:</p>
+
+<pre><span class="cmt">1. local change → git commit</span>
+<span class="cmd">git push origin main</span>
+
+<span class="cmt">2. trigger the Databricks Git folder pull</span>
+<span class="cmd">databricks repos update</span> 985143326884916 --branch main
+
+<span class="cmt">3. poll until workspace HEAD == local HEAD</span>
+<span class="cmd">databricks repos get</span> 985143326884916 <span class="cmt"># .head_commit_id</span>
+
+<span class="cmt">4. submit one-shot job against the Analytics cluster</span>
+<span class="cmd">databricks jobs submit</span> --json '{ ... }'
+
+<span class="cmt">5. assert minimum row counts via SQL warehouse</span>
+<span class="cmd">SELECT COUNT(*) FROM</span> &lt;output_fqn&gt;</pre>
+
+<p>The cached values for this workspace live in <code>lt-memory/databricks/repos.json</code>:</p>
+
+<table class="t">
+  <thead><tr><th>Key</th><th>Value</th></tr></thead>
+  <tbody>
+    <tr><td>Repos id</td><td><code>985143326884916</code></td></tr>
+    <tr><td>Workspace path</td><td><code>/Workspace/Users/<your-user>@<your-domain>/<your-repo></code></td></tr>
+    <tr><td>Default cluster</td><td><code><your-cluster-id></code></td></tr>
+    <tr><td>Default warehouse</td><td><code>DW_DBX_UC</code> (<code>d39d84fcbac4757b</code>)</td></tr>
+  </tbody>
+</table>
+
+<h2 id="troubleshoot"><span class="num">11</span>Troubleshooting</h2>
+
+<table class="t">
+  <thead><tr><th>Symptom</th><th>Likely cause</th><th>Fix</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Orchestrator says <em>"intake has TODOs remaining"</em> and refuses to stage.</td>
+      <td>The intake interview was skipped or partially answered.</td>
+      <td>Re-run <code>/campaign init &lt;campaign&gt; &lt;batch&gt;</code> (it's idempotent past the bootstrap step) or hand-edit the remaining <code>&lt;!-- TODO --&gt;</code> markers in <code>docs/intake.md</code>.</td>
+    </tr>
+    <tr>
+      <td>Schema-verifier says <code>warehouse_unavailable</code>.</td>
+      <td>SQL warehouse is stopped.</td>
+      <td>Start <code>DW_DBX_UC</code>, or pass <code>--cluster</code> to fall back to a running cluster (slower &amp; pricier).</td>
+    </tr>
+    <tr>
+      <td>Deploy-verifier reports <code>sync_timeout</code>.</td>
+      <td>Workspace Git folder isn't pulling — usually a branch mismatch (workspace on a feature branch while you pushed to main).</td>
+      <td>Switch the Databricks Git folder to <code>main</code> via the workspace UI, or push to the branch the workspace is tracking.</td>
+    </tr>
+    <tr>
+      <td>Job runs but row-count assertion fails.</td>
+      <td>An exclusion is more aggressive than intended, or a join dropped rows.</td>
+      <td>Don't blindly relax the assertion. Add temporary <code>print(df.count())</code> probes between stages and run <code>/campaign verify</code> again.</td>
+    </tr>
+    <tr>
+      <td><code>assert_leads_list_schema()</code> raises.</td>
+      <td>A column was dropped or renamed in your sentinel block.</td>
+      <td>The traceback names the missing/extra column. Either restore it, or update <code>docs/extras_data_dictionary.csv</code> if it's a genuinely new column.</td>
+    </tr>
+    <tr>
+      <td>Orchestrator wants to edit <code>generic-campaigns/lib/</code>.</td>
+      <td>It found an exclusion in your campaign that appears in ≥2 campaigns and is recommending promotion.</td>
+      <td>This requires your explicit confirmation via <code>ask_user</code>. Confirm only if you've checked the existing campaigns' SQL agrees.</td>
+    </tr>
+    <tr>
+      <td>You see an <code>excl_shared_phone</code> placeholder set to <code>"N"</code>.</td>
+      <td>You're looking at the most recent campaign batch or a clone of it.</td>
+      <td>Known historical gap — batch-1 implements it in NB02 step 5.5. The orchestrator's intake-extractor flags this automatically.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2 id="faq"><span class="num">12</span>FAQ</h2>
+
+<h3>Do I need to restart Copilot CLI after pulling new skill versions?</h3>
+<p>Yes — the CLI snapshots <code>skills/</code> at session start. Mid-session changes aren't hot-reloaded.</p>
+
+<h3>Can I run a stage without going through <code>/campaign</code>?</h3>
+<p>Yes. The notebooks are normal Databricks notebooks; you can open them in the workspace UI and run them directly. The orchestrator just guarantees consistency. But if you skip <code>verify</code>, you also skip the audit-trail entry and the row-count assertion — your future self will thank you for not skipping.</p>
+
+<h3>What if my campaign needs something the template doesn't support?</h3>
+<p>Three escalation paths, in order of preference:</p>
+<ol>
+  <li>Express it via the intake — most "special" requirements are just unusual values in section 2/3/4.</li>
+  <li>Put it inside a sentinel block in the relevant notebook. The orchestrator preserves your hand-edits outside the block on re-runs.</li>
+  <li>If two or more campaigns need the same thing, file an ADR under <code>generic-campaigns/docs/adr/</code> proposing a framework change. Don't quietly modify <code>lib/</code>.</li>
+</ol>
+
+<h3>How does the orchestrator decide what's "campaign-specific"?</h3>
+<p>It reads <code>generic-campaigns/template/intake.md</code> as the canonical schema. Anything mentioned in those 8 sections is campaign-specific by definition. Anything not mentioned is framework-owned.</p>
+
+<h3>Why is the funnel artefact written twice (to Volume and <code>docs/</code>)?</h3>
+<p>Per ADR 0002: the Volume copy is canonical (regenerated every run); the <code>docs/*funnel.{svg,png}</code> snapshot is refreshed only at campaign launch via <code>databricks fs cp</code>. The <code>docs/</code> copy is what goes into handovers and management decks.</p>
+
+<h3>Can I extend the orchestrator to non-campaign workflows?</h3>
+<p>v1 is intentionally narrow — campaigns under <code>agency-campaigns/</code> only. A v1.1+ idea is to apply the same pattern to <code>feature-mart/</code> pipelines and <code>cx-projects/</code> ingestion notebooks. That's a future skill, not a campaign-orchestrator extension.</p>
+
+<footer>
+  <p>Source files: <code>skills/campaign-orchestrator/SKILL.md</code>, <code>skills/intake-extractor/SKILL.md</code>, <code>skills/schema-verifier/SKILL.md</code>, <code>skills/deploy-verifier/SKILL.md</code>. Framework rules: <code>generic-campaigns/AGENTS.md</code>. Repo conventions: <code>.github/copilot-instructions.md</code>.</p>
+  <p>Commit <code>41c77ca</code> · 2026-05-26 · powered by Claude Opus 4.7 via GitHub Copilot CLI</p>
+</footer>
+
+</div>
+</body>
+</html>
