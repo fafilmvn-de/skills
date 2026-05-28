@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>atlassian-sync — Architecture</title>
+<style>
+  :root {
+    --ink:#0f172a; --muted:#475569; --line:#e2e8f0; --bg:#f1f5f9; --card:#fff;
+    --accent:#0052cc; --accent-2:#0747a6; --accent-soft:#eef5ff;
+    --safe:#16a34a; --safe-soft:#dcfce7;
+    --danger:#dc2626; --danger-soft:#fee2e2;
+    --warn:#d97706; --warn-soft:#fef3c7;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+  header{background:linear-gradient(135deg,#0747a6,#0052cc);color:#fff;padding:28px 32px;
+    box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  header h1{margin:0;font-size:24px;font-weight:600}
+  header .sub{opacity:.9;font-size:14px;margin-top:6px}
+  header a{color:#cfe1ff}
+  main{max-width:1100px;margin:24px auto;padding:0 24px 60px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:24px 28px;margin-bottom:22px;
+    box-shadow:0 1px 3px rgba(0,0,0,.04)}
+  .panel h2{color:var(--accent-2);margin:0 0 4px;font-size:19px}
+  .panel .panel-sub{color:var(--muted);font-size:13.5px;margin-bottom:18px}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);margin-top:14px}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .legend i{width:14px;height:14px;border-radius:3px;display:inline-block;border:1px solid var(--line)}
+  svg{display:block;width:100%;height:auto;max-width:100%;overflow:visible}
+  .node rect, .node path { transition: filter .15s, stroke-width .15s; }
+  .node:hover rect, .node:hover path { filter: brightness(.96); stroke-width: 2.4 !important; }
+  .node.clickable { cursor: pointer; }
+  .node text { pointer-events: none; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .node .title { font-size: 13px; font-weight: 600; fill: var(--ink); }
+  .node .sub { font-size: 11px; fill: var(--muted); }
+  .edge { fill:none; stroke:#94a3b8; stroke-width:1.6; }
+  .edge-label { font-size:11px; fill:var(--muted); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+  .tip {
+    position: fixed; pointer-events: none; z-index: 50;
+    background: #0f172a; color: #f8fafc; padding: 8px 12px; border-radius: 6px;
+    font-size: 12.5px; line-height: 1.45; max-width: 320px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2); opacity: 0; transform: translateY(4px);
+    transition: opacity .12s, transform .12s;
+  }
+  .tip.on { opacity: 1; transform: translateY(0); }
+  .tip code { background: rgba(255,255,255,.12); padding: 1px 5px; border-radius: 3px; font-size: .92em; }
+  .cli-table { width:100%; border-collapse:collapse; font-size:13.5px }
+  .cli-table th, .cli-table td { border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top }
+  .cli-table th { background:#f8fafc; font-weight:600; color:var(--accent-2) }
+  .cli-table td code { background:#eef2f7; padding:1.5px 6px; border-radius:4px; font-size:.92em;
+    font-family:"SF Mono",Consolas,Menlo,monospace; white-space:nowrap }
+  .cli-table tr.danger code { background: var(--danger-soft); color: var(--danger) }
+  .cli-table tr.safe code { background: var(--safe-soft); color: #166534 }
+  footer{max-width:1100px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:13px;text-align:center}
+  footer a { color: var(--accent); }
+  .kbd { background: #f1f5f9; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px;
+    padding: 1px 6px; font-family:"SF Mono",Consolas,monospace; font-size: 12px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>atlassian-sync · Architecture</h1>
+  <div class="sub">
+    A one-glance view of what the tool does, why it's safe, and how to drive it. ·
+    <a href="./README.md">README</a> · <a href="./SKILL.md">SKILL.md</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- ============================================================ -->
+  <!-- PANEL 1: TOP-LEVEL FLOW                                       -->
+  <!-- ============================================================ -->
+  <section class="panel">
+    <h2>1 · What it does</h2>
+    <div class="panel-sub">You run a command. It uses your browser's SSO cookie to talk to Confluence, runs every page through a safety layer, and writes the result somewhere you can use. Hover any box for detail; click to jump to the source.</div>
+
+    <svg viewBox="0 0 1040 290" role="img" aria-label="Top-level data flow">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- USER -->
+      <g class="node" data-tip="You, on your laptop, running a CLI command. No service account, no API token required.">
+        <rect x="20" y="115" width="140" height="60" rx="8" fill="#eef2f7" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="90" y="142" text-anchor="middle" class="title">You</text>
+        <text x="90" y="160" text-anchor="middle" class="sub">CLI command</text>
+      </g>
+
+      <!-- CLI dispatcher -->
+      <g class="node clickable" data-href="scripts/sync-atlassian.mjs"
+         data-tip="<b>sync-atlassian.mjs</b><br>Main CLI dispatcher. Parses the verb (page / subtree / space / search / …) and routes to a sub-module. Click to open.">
+        <rect x="200" y="105" width="180" height="80" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="290" y="135" text-anchor="middle" class="title">sync-atlassian.mjs</text>
+        <text x="290" y="153" text-anchor="middle" class="sub">CLI dispatcher</text>
+        <text x="290" y="170" text-anchor="middle" class="sub">page · subtree · space · …</text>
+      </g>
+
+      <!-- Auth -->
+      <g class="node clickable" data-href="scripts/setup.mjs"
+         data-tip="<b>~/.atlassian-sync/.env</b><br>Your tenant URL + SSO cookie + XSRF token. Written by <code>setup</code>. Cross-repo, user-global; a repo-local <code>.env</code> overrides if present.">
+        <rect x="200" y="20" width="180" height="55" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="290" y="42" text-anchor="middle" class="title">~/.atlassian-sync/.env</text>
+        <text x="290" y="60" text-anchor="middle" class="sub">base URL + cookie + XSRF</text>
+      </g>
+
+      <!-- Confluence -->
+      <g class="node" data-tip="Your tenant's Atlassian Cloud REST API. Authenticated as <i>you</i> via the cookie — same identity, same permissions as your browser session.">
+        <rect x="420" y="20" width="180" height="55" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="510" y="42" text-anchor="middle" class="title">Confluence API</text>
+        <text x="510" y="60" text-anchor="middle" class="sub">your-org.atlassian.net</text>
+      </g>
+
+      <!-- Safety layer -->
+      <g class="node clickable" data-href="scripts/safety.mjs"
+         data-tip="<b>safety.mjs</b><br>Every page body passes through here before disk. Redacts known AV-bait, classifies dangerous-vs-benign, decides where to store. See panel 2.">
+        <rect x="420" y="105" width="180" height="80" rx="8" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.8"/>
+        <text x="510" y="135" text-anchor="middle" class="title">safety.mjs</text>
+        <text x="510" y="153" text-anchor="middle" class="sub">redact · classify · store</text>
+        <text x="510" y="170" text-anchor="middle" class="sub">(see panel 2)</text>
+      </g>
+
+      <!-- Outputs -->
+      <g class="node" data-tip="<b>.confluence-cache/</b> (gitignored, per-user)<br>Bulk sync target. Markdown for benign pages, base64-encoded for dangerous ones under <code>_quarantine/</code>. Plus <code>.index.json</code> for search.">
+        <rect x="660" y="60" width="200" height="65" rx="8" fill="var(--safe-soft)" stroke="var(--safe)" stroke-width="1.5"/>
+        <text x="760" y="86" text-anchor="middle" class="title">.confluence-cache/</text>
+        <text x="760" y="104" text-anchor="middle" class="sub">bulk · gitignored · per-user</text>
+      </g>
+
+      <g class="node" data-tip="<b>docs/&lt;slug&gt;.html</b> (or <code>.md</code>)<br>Single-page export target. Already redacted, so committable if you want.">
+        <rect x="660" y="160" width="200" height="65" rx="8" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="1.5"/>
+        <text x="760" y="186" text-anchor="middle" class="title">docs/&lt;slug&gt;.html</text>
+        <text x="760" y="204" text-anchor="middle" class="sub">one-shot · committable</text>
+      </g>
+
+      <!-- Search reader -->
+      <g class="node clickable" data-href="scripts/search.mjs"
+         data-tip="<b>search.mjs</b><br>The <i>only</i> sanctioned way to read the cache. One file open, no recursive grep. Reads from stdin too — codenames stay out of argv.">
+        <rect x="900" y="105" width="125" height="80" rx="8" fill="#fff" stroke="var(--safe)" stroke-width="1.8" stroke-dasharray="4 3"/>
+        <text x="962" y="135" text-anchor="middle" class="title">search.mjs</text>
+        <text x="962" y="153" text-anchor="middle" class="sub">cache reader</text>
+        <text x="962" y="170" text-anchor="middle" class="sub">(NOT grep -r)</text>
+      </g>
+
+      <!-- Edges -->
+      <path class="edge" d="M160 145 L200 145" marker-end="url(#arr)"/>
+      <path class="edge" d="M290 105 L290 75" marker-end="url(#arr)"/>
+      <path class="edge" d="M380 47 L420 47" marker-end="url(#arr)"/>
+      <path class="edge" d="M510 75 L510 105" marker-end="url(#arr)"/>
+      <text class="edge-label" x="520" y="93">page body</text>
+      <path class="edge" d="M380 145 L420 145" marker-end="url(#arr)"/>
+      <path class="edge" d="M600 130 L660 95" marker-end="url(#arr)"/>
+      <path class="edge" d="M600 160 L660 190" marker-end="url(#arr)"/>
+      <path class="edge" d="M860 92 L900 130" marker-end="url(#arr)"/>
+      <text class="edge-label" x="868" y="116">.index.json</text>
+    </svg>
+
+    <div class="legend">
+      <span><i style="background:var(--accent-soft);border-color:var(--accent)"></i> CLI entry</span>
+      <span><i style="background:var(--warn-soft);border-color:var(--warn)"></i> Safety pipeline</span>
+      <span><i style="background:var(--safe-soft);border-color:var(--safe)"></i> Output / gitignored</span>
+      <span><i style="background:#fff;border-color:#94a3b8"></i> External / config</span>
+      <span style="margin-left:auto;color:var(--muted)">Click any solid-border box to open the source on disk.</span>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- PANEL 2: SAFETY PIPELINE                                      -->
+  <!-- ============================================================ -->
+  <section class="panel">
+    <h2>2 · Why it's safe to keep on disk</h2>
+    <div class="panel-sub">
+      The defining feature of this tool. Any sufficiently large Confluence space contains pages that, written naively to disk, will be quarantined by Microsoft Defender for Endpoint or a similar on-access EDR. The companion failure is a recursive <code>grep&nbsp;-r</code> over the cache, which fans the AV scan out to every file <em>and</em> puts a keyword chain into command-line telemetry. The fix has two halves: every page write goes through this pipeline, and reads go through <code>search</code> instead of <code>grep&nbsp;-r</code>.
+    </div>
+
+    <svg viewBox="0 0 1040 360" role="img" aria-label="Safety pipeline detail">
+      <defs>
+        <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+        </marker>
+      </defs>
+
+      <!-- IN -->
+      <g class="node" data-tip="Raw page body returned by the Confluence API (HTML storage format).">
+        <rect x="20" y="155" width="130" height="60" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5"/>
+        <text x="85" y="182" text-anchor="middle" class="title">Page body</text>
+        <text x="85" y="200" text-anchor="middle" class="sub">from Confluence</text>
+      </g>
+
+      <!-- Step 1: REDACT -->
+      <g class="node clickable" data-href="safety-rules.json"
+         data-tip="<b>Redact</b><br>Regex rules from <code>safety-rules.json:redactPatterns</code>, stored base64-encoded so the rules file itself doesn't trip AV. Hits become <code>[[REDACTED:&lt;rule-id&gt;]]</code> and are counted into <code>.audit.log</code> (rule-id + count only, never the matched bytes).">
+        <rect x="190" y="145" width="160" height="80" rx="8" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.8"/>
+        <text x="270" y="175" text-anchor="middle" class="title">1 · Redact</text>
+        <text x="270" y="193" text-anchor="middle" class="sub">base64 regex rules</text>
+        <text x="270" y="210" text-anchor="middle" class="sub">→ [[REDACTED:id]]</text>
+      </g>
+
+      <!-- Step 2: CLASSIFY -->
+      <g class="node clickable" data-href="scripts/safety.mjs"
+         data-tip="<b>Classify</b><br>A page is <i>dangerous</i> if ANY:<br>· Confluence label in <code>dangerousLabels</code><br>· title keyword in <code>dangerousTitleKeywords</code><br>· redaction pass made ≥3 hits<br>Otherwise benign.">
+        <rect x="390" y="145" width="160" height="80" rx="8" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="1.8"/>
+        <text x="470" y="175" text-anchor="middle" class="title">2 · Classify</text>
+        <text x="470" y="193" text-anchor="middle" class="sub">label · title · body</text>
+        <text x="470" y="210" text-anchor="middle" class="sub">→ benign | dangerous</text>
+      </g>
+
+      <!-- Step 3a: STORE BENIGN -->
+      <g class="node" data-tip="<b>Benign branch</b><br>Plain redacted markdown at <code>.confluence-cache/confluence/&lt;folder&gt;/&lt;category&gt;/&lt;id&gt;-&lt;slug&gt;.md</code>. Title visible in filename — safe to be.">
+        <rect x="600" y="50" width="220" height="80" rx="8" fill="var(--safe-soft)" stroke="var(--safe)" stroke-width="1.5"/>
+        <text x="710" y="80" text-anchor="middle" class="title">3a · Benign → plain .md</text>
+        <text x="710" y="98" text-anchor="middle" class="sub">confluence/&lt;folder&gt;/&lt;cat&gt;/</text>
+        <text x="710" y="115" text-anchor="middle" class="sub">&lt;id&gt;-&lt;slug&gt;.md</text>
+      </g>
+
+      <!-- Step 3b: STORE DANGEROUS -->
+      <g class="node" data-tip="<b>Dangerous branch</b><br>Body redacted, then base64-encoded, written via <code>.tmp</code> rename so a half-written file is never readable as plain bytes mid-write. Filename has no keyword tokens. Original title preserved in <code>_quarantine/_index.json</code>.">
+        <rect x="600" y="240" width="220" height="80" rx="8" fill="var(--danger-soft)" stroke="var(--danger)" stroke-width="1.8"/>
+        <text x="710" y="270" text-anchor="middle" class="title">3b · Dangerous → base64</text>
+        <text x="710" y="288" text-anchor="middle" class="sub">_quarantine/&lt;id&gt;-&lt;sha8&gt;.md.b64</text>
+        <text x="710" y="305" text-anchor="middle" class="sub">content-neutral filename</text>
+      </g>
+
+      <!-- Step 4: INDEX -->
+      <g class="node clickable" data-href="scripts/index.mjs"
+         data-tip="<b>index.mjs</b><br>Rebuilds <code>.confluence-cache/.index.json</code> — one file with redacted body + metadata for every cached page (including, separately, decoded-already-redacted dangerous ones).">
+        <rect x="860" y="145" width="160" height="80" rx="8" fill="var(--safe-soft)" stroke="var(--safe)" stroke-width="1.5"/>
+        <text x="940" y="175" text-anchor="middle" class="title">4 · Index</text>
+        <text x="940" y="193" text-anchor="middle" class="sub">single .index.json</text>
+        <text x="940" y="210" text-anchor="middle" class="sub">→ search reads this</text>
+      </g>
+
+      <!-- AUDIT -->
+      <g class="node" data-tip="<b>.audit.log</b> (JSONL)<br>One event per page write: which rules hit, how many times, severity. Never the matched bytes. Safe to grep — recommended with <code>jq</code>.">
+        <rect x="190" y="40" width="160" height="55" rx="8" fill="#fff" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
+        <text x="270" y="62" text-anchor="middle" class="title">.audit.log</text>
+        <text x="270" y="80" text-anchor="middle" class="sub">JSONL, rule-id + count</text>
+      </g>
+
+      <!-- Edges -->
+      <path class="edge" d="M150 185 L190 185" marker-end="url(#arr2)"/>
+      <path class="edge" d="M350 185 L390 185" marker-end="url(#arr2)"/>
+      <path class="edge" d="M270 145 L270 95" marker-end="url(#arr2)"/>
+      <text class="edge-label" x="278" y="125">audit</text>
+      <path class="edge" d="M550 170 L600 100" marker-end="url(#arr2)" stroke="var(--safe)"/>
+      <text class="edge-label" x="555" y="138" fill="var(--safe)">benign</text>
+      <path class="edge" d="M550 200 L600 270" marker-end="url(#arr2)" stroke="var(--danger)"/>
+      <text class="edge-label" x="555" y="240" fill="var(--danger)">dangerous</text>
+      <path class="edge" d="M820 90 L900 145" marker-end="url(#arr2)"/>
+      <path class="edge" d="M820 280 L900 225" marker-end="url(#arr2)"/>
+    </svg>
+
+    <div class="legend">
+      <span><i style="background:var(--warn-soft);border-color:var(--warn)"></i> Pipeline step</span>
+      <span><i style="background:var(--safe-soft);border-color:var(--safe)"></i> Benign / safe output</span>
+      <span><i style="background:var(--danger-soft);border-color:var(--danger)"></i> Quarantined output</span>
+      <span style="margin-left:auto;color:var(--muted)">Detail: <a href="./references/safety-model.md">references/safety-model.md</a></span>
+    </div>
+  </section>
+
+  <!-- ============================================================ -->
+  <!-- PANEL 3: CLI MAP                                              -->
+  <!-- ============================================================ -->
+  <section class="panel">
+    <h2>3 · What you can run</h2>
+    <div class="panel-sub">
+      All commands are <code>atlassian-sync &lt;verb&gt;</code> after <code>npm install -g .</code> (or <code>node scripts/sync-atlassian.mjs &lt;verb&gt;</code> without install). The two highlighted rows are the ones to remember: <span class="kbd" style="background:var(--safe-soft);color:#166534">search</span> is how you read the cache, and <span class="kbd" style="background:var(--danger-soft);color:var(--danger)">never grep -r</span> is the one rule.
+    </div>
+
+    <table class="cli-table">
+      <thead>
+        <tr><th style="width:170px">Verb</th><th>What it does</th><th>When you'd use it</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>setup</code></td>
+          <td>Interactive base-URL + cookie acquisition. Writes <code>~/.atlassian-sync/.env</code>.</td>
+          <td>Once per machine. Then again with <code>--renew</code> when the cookie expires.</td>
+        </tr>
+        <tr>
+          <td><code>page &lt;url&gt;</code></td>
+          <td>Single page → <code>docs/&lt;slug&gt;.html</code> (or <code>.md</code> with <code>--md</code>; checklist with <code>--template checklist</code>).</td>
+          <td>"I want to share this one page" or "agent, read this page for context".</td>
+        </tr>
+        <tr>
+          <td><code>subtree &lt;id&gt;</code></td>
+          <td>Recursive crawl from a root page → <code>.confluence-cache/</code>.</td>
+          <td>Mirror a specific section of a space without crawling everything.</td>
+        </tr>
+        <tr>
+          <td><code>space &lt;key&gt;</code></td>
+          <td>Full space crawl → <code>.confluence-cache/</code>.</td>
+          <td>Full knowledge-base mirror. Slow first time, fast on repeat.</td>
+        </tr>
+        <tr>
+          <td><em>(no verb)</em></td>
+          <td>Bulk sync from <code>.atlassian-sync.json</code>. Builds index at the end.</td>
+          <td>Daily/weekly refresh of all configured spaces + root pages + Jira projects.</td>
+        </tr>
+        <tr class="safe">
+          <td><code>search "&lt;q&gt;"</code></td>
+          <td><strong>The only sanctioned way to read the cache.</strong> One file open, no fan-out. Accepts <code>-</code> to read from stdin.</td>
+          <td>Every time you want to find something in the cache. <strong>Use this instead of grep.</strong></td>
+        </tr>
+        <tr>
+          <td><code>index</code></td>
+          <td>Force a rebuild of <code>.confluence-cache/.index.json</code>.</td>
+          <td>After hand-editing the cache, or if search results look stale.</td>
+        </tr>
+        <tr>
+          <td><code>migrate</code></td>
+          <td>Re-apply current safety rules to an existing cache. Rename-before-read so on-access AV stays quiet.</td>
+          <td>After updating <code>safety-rules.json</code>, or to retrofit an old un-safe cache.</td>
+        </tr>
+        <tr>
+          <td><code>ping</code></td>
+          <td>Quick auth + connectivity check.</td>
+          <td>"Is my cookie still alive?"</td>
+        </tr>
+        <tr class="danger">
+          <td><code>grep -r&nbsp;…/.confluence-cache/</code></td>
+          <td><strong>Don't.</strong> Triggers on-access AV across every page and lands a keyword chain in process telemetry that SIEM keyword rules flag as discovery.</td>
+          <td>Never. Use <code>search</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+</main>
+
+<div class="tip" id="tip" role="tooltip"></div>
+
+<footer>
+  Lives alongside <a href="./README.md">README.md</a> and <a href="./SKILL.md">SKILL.md</a>.
+  Decisions behind the design: ADR <a href="./docs/adr/0001-confluence-auth-via-session-cookie.md">0001</a> ·
+  <a href="./docs/adr/0002-content-safety-for-confluence-cache.md">0002</a> ·
+  <a href="./docs/adr/0003-search-index-for-confluence-cache.md">0003</a>.
+</footer>
+
+<script>
+  // Tooltip on hover for any [data-tip]
+  const tip = document.getElementById('tip');
+  function showTip(html, x, y) {
+    tip.innerHTML = html;
+    tip.classList.add('on');
+    const pad = 14;
+    const w = tip.offsetWidth, h = tip.offsetHeight;
+    let left = x + pad, top = y + pad;
+    if (left + w > window.innerWidth - 8) left = x - w - pad;
+    if (top + h > window.innerHeight - 8) top = y - h - pad;
+    tip.style.left = Math.max(8, left) + 'px';
+    tip.style.top = Math.max(8, top) + 'px';
+  }
+  function hideTip() { tip.classList.remove('on'); }
+
+  document.querySelectorAll('[data-tip]').forEach(el => {
+    el.addEventListener('mouseenter', e => showTip(el.dataset.tip, e.clientX, e.clientY));
+    el.addEventListener('mousemove',  e => showTip(el.dataset.tip, e.clientX, e.clientY));
+    el.addEventListener('mouseleave', hideTip);
+    el.addEventListener('focus',      e => {
+      const r = el.getBoundingClientRect();
+      showTip(el.dataset.tip, r.left, r.bottom);
+    });
+    el.addEventListener('blur', hideTip);
+  });
+
+  // Click-to-jump for nodes with data-href (opens the file relative to this HTML)
+  document.querySelectorAll('[data-href]').forEach(el => {
+    el.setAttribute('tabindex', '0');
+    el.addEventListener('click', () => { window.location.href = el.dataset.href; });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); window.location.href = el.dataset.href; }
+    });
+  });
+</script>
+</body>
+</html>

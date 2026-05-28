@@ -1,0 +1,96 @@
+{
+  "$schema_version": 1,
+  "_comment": "Regex SOURCES are base64-encoded so this file itself cannot trip Defender's signature scanner. Loader decodes at startup. See docs/adr/0002-content-safety-for-confluence-cache.md and skills/atlassian-sync/references/safety-model.md.",
+
+  "dangerousLabels": [
+    "pentest",
+    "penetration-test",
+    "penetration-testing",
+    "security-review",
+    "security-assessment",
+    "redteam",
+    "red-team",
+    "exploit",
+    "exploitation",
+    "webshell",
+    "vulnerability",
+    "vuln",
+    "owasp",
+    "ctf",
+    "infosec",
+    "appsec"
+  ],
+
+  "dangerousTitleKeywords": [
+    "pentest",
+    "penetration test",
+    "webshell",
+    "reverse shell",
+    "backdoor",
+    "exploit",
+    "vulnerability",
+    "ctf writeup",
+    "owasp",
+    "sqli cheatsheet",
+    "xss cheatsheet"
+  ],
+
+  "bodyScanEscalationThreshold": 3,
+
+  "redactPatterns": [
+    {
+      "id": "php-eval-base64",
+      "encodedPattern": "PFw/cGhwW1xzXFNdKj9ldmFsXChiYXNlNjRfZGVjb2RlXCg=",
+      "replacement": "[[REDACTED:php-eval-base64]]",
+      "severity": "high"
+    },
+    {
+      "id": "php-system-get",
+      "encodedPattern": "PFw/cGhwW1xzXFNdKj9zeXN0ZW1cKFwkX0dFVA==",
+      "replacement": "[[REDACTED:php-system-get]]",
+      "severity": "high"
+    },
+    {
+      "id": "php-exec-post",
+      "encodedPattern": "PFw/cGhwW1xzXFNdKj8oZXhlY3xzaGVsbF9leGVjfHBhc3N0aHJ1KVwoXCRfUE9TVA==",
+      "replacement": "[[REDACTED:php-exec-post]]",
+      "severity": "high"
+    },
+    {
+      "id": "perhetshell-marker",
+      "encodedPattern": "UGVyaGV0c2hlbGw=",
+      "replacement": "[[REDACTED:perhetshell-marker]]",
+      "severity": "high"
+    },
+    {
+      "id": "bash-reverse-shell",
+      "encodedPattern": "YmFzaFxzK1wtaVxzKz5ccyovZGV2L3RjcC9bXlxzXStccyowPiY=",
+      "replacement": "[[REDACTED:bash-reverse-shell]]",
+      "severity": "medium"
+    },
+    {
+      "id": "python-reverse-shell",
+      "encodedPattern": "c29ja2V0XC5zb2NrZXRcKFteXHNdK1wpW1xzXFNdKj9zdWJwcm9jZXNzXC5jYWxs",
+      "replacement": "[[REDACTED:python-reverse-shell]]",
+      "severity": "medium"
+    },
+    {
+      "id": "nc-reverse-shell",
+      "encodedPattern": "bmNccytcLWVccysvYmluLyhiYXNofHNoKQ==",
+      "replacement": "[[REDACTED:nc-reverse-shell]]",
+      "severity": "medium"
+    },
+    {
+      "id": "powershell-encoded",
+      "encodedPattern": "cG93ZXJzaGVsbFxzK1wtZW5jXHMrW0EtWmEtejAtOSsvPV17NDAsfQ==",
+      "replacement": "[[REDACTED:powershell-encoded]]",
+      "severity": "medium"
+    },
+    {
+      "id": "mimikatz-marker",
+      "encodedPattern": "bWltaWthdHo=",
+      "replacement": "[[REDACTED:mimikatz-marker]]",
+      "severity": "medium"
+    }
+  ]
+}

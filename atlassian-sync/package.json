@@ -1,0 +1,43 @@
+{
+  "name": "atlassian-sync",
+  "version": "0.1.0",
+  "description": "Pull Confluence pages (and Jira projects) from any Atlassian Cloud tenant into a local cache or single-page HTML/MD export. SSO-cookie auth, content-safety pipeline, single-file search index. No native dependencies.",
+  "type": "module",
+  "bin": {
+    "atlassian-sync": "scripts/sync-atlassian.mjs"
+  },
+  "scripts": {
+    "setup": "node scripts/setup.mjs",
+    "ping": "node scripts/sync-atlassian.mjs ping",
+    "sync": "node scripts/sync-atlassian.mjs",
+    "search": "node scripts/search.mjs",
+    "index": "node scripts/index.mjs",
+    "migrate": "node scripts/migrate.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT",
+  "keywords": [
+    "atlassian",
+    "confluence",
+    "jira",
+    "sync",
+    "knowledge-base",
+    "sso",
+    "defender",
+    "av-safe",
+    "cli"
+  ],
+  "files": [
+    "scripts/",
+    "assets/",
+    "references/",
+    "docs/",
+    "safety-rules.json",
+    "SKILL.md",
+    "README.md",
+    "ARCHITECTURE.html",
+    "LICENSE"
+  ]
+}

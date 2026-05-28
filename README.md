@@ -12,6 +12,7 @@ ship companion artefacts under `prompts/` and `docs/`.
 
 | Skill | What it does |
 | --- | --- |
+| [`atlassian-sync`](./atlassian-sync) | Pulls Confluence pages (and Jira projects) from any Atlassian Cloud tenant into a local cache or a single shareable HTML/MD file. SSO-cookie auth (API token fallback), layered content-safety pipeline to avoid AV quarantine, single-file search index instead of recursive grep. Node 18+, no native deps. |
 | [`campaign-orchestrator`](./campaign-orchestrator) | End-to-end orchestrator for a 6-stage Databricks "campaign" pipeline. Dispatches to the other three skills below. Driven by a slash-style `/campaign <verb>` command (init, stage, status, verify, extract-intake). |
 | [`intake-extractor`](./intake-extractor) | Reverse-engineers a draft `intake.md` from an existing campaign folder by scanning its notebooks. |
 | [`schema-verifier`](./schema-verifier) | Runs `DESCRIBE TABLE` against Unity Catalog via the `databricks` CLI and answers "does this table/column exist? what's its type?". Caches results to avoid repeated cluster round-trips. |

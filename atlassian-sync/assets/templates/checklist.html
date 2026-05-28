@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>{{TITLE}} — Implementation Checklist</title>
+<style>
+  :root {
+    --ink:#0f172a; --muted:#475569; --line:#e2e8f0;
+    --accent:#0052cc; --accent-2:#0747a6;
+    --ok:#0a7d3e; --ok-bg:#e6f4ea;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#f1f5f9;color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.55}
+  header{background:linear-gradient(135deg,#0747a6,#0052cc);color:#fff;padding:24px 32px}
+  header h1{margin:0;font-size:24px;font-weight:600}
+  header .sub{opacity:.85;font-size:13px;margin-top:6px}
+  .layout{max-width:1100px;margin:24px auto;padding:0 24px;display:grid;grid-template-columns:240px 1fr;gap:24px}
+  aside{position:sticky;top:24px;align-self:start;background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px}
+  aside h2{margin:0 0 8px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .progress{margin-top:12px;font-size:13px;color:var(--muted)}
+  .bar{height:6px;background:#e2e8f0;border-radius:4px;overflow:hidden;margin-top:6px}
+  .bar>div{height:100%;background:var(--accent);width:0%;transition:width .3s}
+  .reset{margin-top:10px;font-size:12px;color:var(--muted);background:none;border:1px solid var(--line);padding:5px 10px;border-radius:4px;cursor:pointer}
+  main{background:#fff;border:1px solid var(--line);border-radius:10px;padding:28px 32px}
+  main h1,main h2,main h3{color:var(--accent-2)}
+  main h2{border-bottom:1px solid var(--line);padding-bottom:6px;margin-top:1.5em}
+  main img{max-width:100%;border:1px solid var(--line);border-radius:6px;margin:8px 0;cursor:zoom-in}
+  main code{background:#eef2f7;padding:1.5px 6px;border-radius:4px;font-size:.92em;font-family:"SF Mono",Consolas,Menlo,monospace}
+  /* turn each <li> into a checkable step */
+  main ul, main ol { list-style:none; padding-left:0 }
+  main li{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--line);
+    border-radius:8px;margin:8px 0;background:#fafbfc;cursor:pointer}
+  main li:hover{background:#f4f7fb}
+  main li::before{content:'';display:inline-block;flex-shrink:0;width:18px;height:18px;margin-top:2px;
+    border:2px solid #94a3b8;border-radius:4px;background:#fff}
+  main li.done{background:var(--ok-bg);border-color:#a7d4b8}
+  main li.done::before{background:var(--ok);border-color:var(--ok);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='4'><polyline points='5 12 10 17 19 7'/></svg>");
+    background-size:14px;background-position:center;background-repeat:no-repeat}
+  main li.done > *:first-child{text-decoration:line-through;color:var(--muted)}
+  .lb{position:fixed;inset:0;background:rgba(0,0,0,.85);display:none;align-items:center;justify-content:center;z-index:99;cursor:zoom-out}
+  .lb.on{display:flex}
+  .lb img{max-width:95vw;max-height:95vh}
+  footer{max-width:1100px;margin:0 auto;padding:16px 24px 40px;color:var(--muted);font-size:13px}
+  @media (max-width:900px){ .layout{grid-template-columns:1fr} aside{position:static} }
+  @media print{aside,.reset,header{display:none}main{border:none;padding:0}body{background:#fff}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>{{TITLE}}</h1>
+  <div class="sub">Implementation checklist · synced {{SYNCED}} · <a style="color:#cfe1ff" href="{{URL}}" target="_blank">source</a></div>
+</header>
+
+<div class="layout">
+
+<aside>
+  <h2>Progress</h2>
+  <div><span id="pct">0%</span> · <span id="cnt">0/0</span> steps</div>
+  <div class="bar"><div id="barfill"></div></div>
+  <button class="reset" onclick="resetAll()">Reset</button>
+</aside>
+
+<main id="content">
+{{BODY}}
+</main>
+
+</div>
+
+<footer>
+  Generated from Confluence by <code>skills/atlassian-sync</code> with <code>--template checklist</code>.
+  Source: <a href="{{URL}}">{{URL}}</a>.
+</footer>
+
+<div class="lb" id="lb" onclick="this.classList.remove('on')"><img id="lbimg" alt=""></div>
+
+<script>
+  const KEY = 'atl-checklist-{{SLUG}}';
+  const items = document.querySelectorAll('main li');
+  const state = JSON.parse(localStorage.getItem(KEY) || '{}');
+
+  items.forEach((li, i) => {
+    const id = 's' + i;
+    if (state[id]) li.classList.add('done');
+    li.addEventListener('click', e => {
+      if (e.target.tagName === 'A' || e.target.tagName === 'IMG') return;
+      li.classList.toggle('done');
+      state[id] = li.classList.contains('done');
+      localStorage.setItem(KEY, JSON.stringify(state));
+      refresh();
+    });
+  });
+
+  function refresh() {
+    const done = document.querySelectorAll('main li.done').length;
+    const total = items.length;
+    const pct = total ? Math.round(done*100/total) : 0;
+    document.getElementById('pct').textContent = pct + '%';
+    document.getElementById('cnt').textContent = done + '/' + total;
+    document.getElementById('barfill').style.width = pct + '%';
+  }
+  refresh();
+
+  function resetAll() {
+    if (!confirm('Reset all checklist items?')) return;
+    localStorage.removeItem(KEY);
+    items.forEach(li => li.classList.remove('done'));
+    refresh();
+  }
+
+  // Lightbox for images
+  const lb = document.getElementById('lb'), lbimg = document.getElementById('lbimg');
+  document.querySelectorAll('main img').forEach(img => {
+    img.addEventListener('click', e => { e.stopPropagation(); lbimg.src = img.src; lb.classList.add('on'); });
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') lb.classList.remove('on'); });
+</script>
+</body>
+</html>
